@@ -1,13 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"mime"
 	"net/http"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/google/uuid"
@@ -43,30 +40,25 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	}
 	defer file.Close()
 
-	mediaType := header.Header.Get("Content-Type")
-	if mediaType == "" {
-		respondWithError(w, http.StatusBadRequest, "Missing Content-Type for thumbnail", nil)
-		return
-	}
-
-	fileType, _, err := mime.ParseMediaType(mediaType)
+	mediaType, _, err := mime.ParseMediaType(header.Header.Get("Content-Type"))
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Unable to parse media type", nil)
 		return
 	}
-	if fileType != "image/jpg" && fileType != "image/png" {
+	if mediaType != "image/jpg" && mediaType != "image/png" {
 		respondWithError(w, http.StatusForbidden, "Incorrect media type", nil)
 		return
 	}
 
-	path := filepath.Join(cfg.assetsRoot, videoID.String())
-	ext := "." + strings.Split(mediaType, "/")[1]
-	dst, err := os.Create(path + ext)
+	assetPath := getAssetPath(videoID, mediaType)
+	assetDiskPath := cfg.getAssetDiskPath(assetPath)
+
+	dst, err := os.Create(assetDiskPath)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't create file", err)
+		respondWithError(w, http.StatusInternalServerError, "Unable to create file on server", err)
 		return
 	}
-
+	defer dst.Close()
 	_, err = io.Copy(dst, file)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't copy file", err)
@@ -83,9 +75,8 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	str := fmt.Sprintf("http://localhost:$s/assets/$s$s", cfg.port, videoID, ext)
-	video.ThumbnailURL = &str
-
+	url := cfg.getAssetURL(assetPath)
+	video.ThumbnailURL = &url
 	err = cfg.db.UpdateVideo(video)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't update video", err)
