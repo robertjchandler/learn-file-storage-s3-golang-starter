@@ -5,3 +5,4 @@ assets/
 samples/
 bin/
 *.zip
+aws/
