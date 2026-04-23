@@ -55,7 +55,7 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	key := make([]byte, 32)
 	rand.Read(key)
 
-	keyString := base64.URLEncoding.EncodeToString([]byte(key))
+	keyString := base64.URLEncoding.EncodeToString(key)
 	assetPath := getAssetPath(uuid.UUID([]byte(keyString)), mediaType)
 	assetDiskPath := cfg.getAssetDiskPath(assetPath)
 
